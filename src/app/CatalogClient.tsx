@@ -26,7 +26,7 @@ const DELIVERY_OPTIONS = [
   'Expedition / Ekspedisi',
 ];
 
-const WHATSAPP_NUMBER = '62895422955202'; // Replace with client's WA number
+const WHATSAPP_NUMBER = '6285111385202';
 
 export default function CatalogClient({
   variants,
