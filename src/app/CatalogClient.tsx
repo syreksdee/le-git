@@ -30,11 +30,13 @@ const WHATSAPP_NUMBER = '6285111385202';
 
 export default function CatalogClient({
   variants,
+  pickupAddress,
 }: {
   variants: VariantItem[];
+  pickupAddress: string;
 }) {
-  const [selectedVariantId, setSelectedVariantId] = useState<number>(
-    variants[0]?.id ?? 1
+  const [selectedVariantId, setSelectedVariantId] = useState<number | null>(
+    variants[0]?.id ?? null
   );
   const [selectedPackages, setSelectedPackages] = useState<
     Record<number, number>
@@ -48,12 +50,12 @@ export default function CatalogClient({
   const [deliveryMethod, setDeliveryMethod] = useState<string>(
     DELIVERY_OPTIONS[0]
   );
+  const [deliveryAddress, setDeliveryAddress] = useState('');
 
   const formatIDR = (amount: number) =>
     'Rp. ' + amount.toLocaleString('id-ID');
 
-  const activeVariant =
-    variants.find((v) => v.id === selectedVariantId) || variants[0];
+  const activeVariant = variants.find((v) => v.id === selectedVariantId);
   const activePkgId = activeVariant
     ? selectedPackages[activeVariant.id]
     : undefined;
@@ -62,12 +64,15 @@ export default function CatalogClient({
   );
 
   const buildWhatsAppLink = () => {
-    if (!activeVariant || !activePackage) {
-      return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
-        'Halo Lé Git! Saya ingin bertanya tentang produk cookies-nya.'
-      )}`;
-    }
-    const message = `Halo Lé Git! Saya tertarik untuk memesan / menanyakan info:\n• Varian: ${activeVariant.name}\n• Paket: ${activePackage.sizeLabel} - ${activePackage.name} (${formatIDR(activePackage.price)})\n• Pengiriman: ${deliveryMethod}\n\nApakah stok tersedia?`;
+    const productDetails =
+      activeVariant && activePackage
+        ? `\n• Varian: ${activeVariant.name}\n• Paket: ${activePackage.sizeLabel} - ${activePackage.name} (${formatIDR(activePackage.price)})`
+        : '';
+    const fulfillmentDetails =
+      deliveryMethod === DELIVERY_OPTIONS[0]
+        ? `\n• Lokasi pengambilan: ${pickupAddress}`
+        : `\n• Alamat tujuan: ${deliveryAddress.trim() || '(belum diisi)'}`;
+    const message = `Halo Lé Git! Saya ingin memesan / menanyakan info:${productDetails}\n• Pengiriman: ${deliveryMethod}${fulfillmentDetails}\n\nApakah stok tersedia?`;
     return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
   };
 
@@ -122,10 +127,9 @@ export default function CatalogClient({
             const isSelectedCard = selectedVariantId === variant.id;
 
             return (
-              <div
+              <article
                 key={variant.id}
-                onClick={() => setSelectedVariantId(variant.id)}
-                className={`bg-white rounded-2xl overflow-hidden border transition-all cursor-pointer ${
+                className={`bg-white rounded-2xl overflow-hidden border transition-all ${
                   isSelectedCard
                     ? 'border-[#8C4A27] ring-2 ring-[#8C4A27]/20 shadow-md'
                     : 'border-[#E8D8C8] shadow-sm'
@@ -145,26 +149,39 @@ export default function CatalogClient({
                       Sold Out
                     </span>
                   )}
-                  {isSelectedCard && !variant.isSoldOut && (
-                    <span className="absolute top-3 left-3 bg-[#3B2314] text-[#F3C68F] text-xs font-semibold px-3 py-1 rounded-full">
-                      Selected for Inquiry
-                    </span>
-                  )}
                 </div>
 
                 <div className="p-5 space-y-4">
-                  <div>
-                    <h3 className="text-xl font-bold text-[#2C1E16]">
-                      {variant.name}
-                    </h3>
-                    {variant.subtitle && (
-                      <p className="text-xs font-medium text-[#8C4A27]">
-                        {variant.subtitle}
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-xl font-bold text-[#2C1E16]">
+                        {variant.name}
+                      </h3>
+                      {variant.subtitle && (
+                        <p className="text-xs font-medium text-[#8C4A27]">
+                          {variant.subtitle}
+                        </p>
+                      )}
+                      <p className="mt-2 text-sm text-[#5C4332] leading-relaxed">
+                        {variant.description}
                       </p>
-                    )}
-                    <p className="mt-2 text-sm text-[#5C4332] leading-relaxed">
-                      {variant.description}
-                    </p>
+                    </div>
+                    <button
+                      type="button"
+                      aria-pressed={isSelectedCard}
+                      onClick={() =>
+                        setSelectedVariantId(
+                          isSelectedCard ? null : variant.id
+                        )
+                      }
+                      className={`shrink-0 rounded-lg border px-3 py-2 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8C4A27] ${
+                        isSelectedCard
+                          ? 'border-[#8C4A27] bg-[#3B2314] text-white'
+                          : 'border-[#E0CEBC] text-[#5C4332] hover:border-[#8C4A27]'
+                      }`}
+                    >
+                      {isSelectedCard ? 'Batalkan pilihan' : 'Pilih kukis'}
+                    </button>
                   </div>
 
                   {/* Interactive Package Selector */}
@@ -179,8 +196,7 @@ export default function CatalogClient({
                           <button
                             key={pkg.id}
                             type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
+                            onClick={() => {
                               setSelectedVariantId(variant.id);
                               setSelectedPackages((prev) => ({
                                 ...prev,
@@ -208,7 +224,7 @@ export default function CatalogClient({
                     </div>
                   </div>
                 </div>
-              </div>
+              </article>
             );
           })}
         </section>
@@ -235,6 +251,25 @@ export default function CatalogClient({
               </button>
             ))}
           </div>
+          {deliveryMethod === DELIVERY_OPTIONS[0] ? (
+            <div className="rounded-xl bg-[#FAF6F0] p-3 text-sm text-[#5C4332]">
+              <p className="font-semibold text-[#3B2314]">
+                Alamat pengambilan
+              </p>
+              <p className="mt-1">{pickupAddress}</p>
+            </div>
+          ) : (
+            <label className="block space-y-1.5 text-sm font-medium text-[#3B2314]">
+              Alamat pengiriman
+              <textarea
+                value={deliveryAddress}
+                onChange={(event) => setDeliveryAddress(event.target.value)}
+                rows={3}
+                placeholder="Masukkan alamat lengkap tujuan pengiriman"
+                className="w-full rounded-xl border border-[#E0CEBC] px-3 py-2.5 text-sm font-normal text-[#2C1E16] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8C4A27]"
+              />
+            </label>
+          )}
         </section>
       </div>
 
@@ -249,9 +284,11 @@ export default function CatalogClient({
           >
             <div className="text-left">
               <span className="block text-xs font-normal opacity-95">
-                {activeVariant?.name} • {activePackage?.name}
+                {activeVariant && activePackage
+                  ? `${activeVariant.name} • ${activePackage.name}`
+                  : 'Belum memilih kukis'}
               </span>
-              <span className="text-sm">Order / Ask via WhatsApp</span>
+              <span className="text-sm">Pesan / Tanya via WhatsApp</span>
             </div>
             <span className="bg-white/20 px-3 py-1 rounded-lg text-sm">
               {activePackage ? formatIDR(activePackage.price) : 'Chat'} →

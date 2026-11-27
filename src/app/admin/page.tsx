@@ -19,17 +19,29 @@ type VariantItem = {
   packages: PackageItem[];
 };
 
+const NEW_VARIANT_PACKAGES = [
+  { label: 'Regular Size (8 cm) - Reguler Package (3 pcs)', price: '35000' },
+  { label: 'Regular Size (8 cm) - Medium Package (6 pcs)', price: '55000' },
+  { label: 'Regular Size (8 cm) - Large Package (10 pcs)', price: '85000' },
+  { label: 'Mini Bites (5 cm) - Mini Bites Package (12 pcs)', price: '60000' },
+];
+
 export default function AdminDashboard() {
   const [password, setPassword] = useState('');
   const [authenticated, setAuthenticated] = useState(false);
   const [variants, setVariants] = useState<VariantItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [pickupAddress, setPickupAddress] = useState('');
+  const [savingPickupAddress, setSavingPickupAddress] = useState(false);
 
   // New Flavor Form
   const [name, setName] = useState('');
   const [subtitle, setSubtitle] = useState('');
   const [description, setDescription] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [packagePrices, setPackagePrices] = useState(
+    NEW_VARIANT_PACKAGES.map((pkg) => pkg.price)
+  );
 
   const fetchVariants = async (pwd: string) => {
     setLoading(true);
@@ -41,6 +53,7 @@ export default function AdminDashboard() {
     if (res.ok) {
       const data = await res.json();
       setVariants(data.variants);
+      setPickupAddress(data.storeSettings.pickupAddress);
       setAuthenticated(true);
     } else {
       alert('Wrong admin password');
@@ -108,20 +121,55 @@ export default function AdminDashboard() {
     e.preventDefault();
     if (!name || !description) return;
 
-    await fetch('/api/admin', {
+    const res = await fetch('/api/admin', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-admin-password': password,
       },
-      body: JSON.stringify({ name, subtitle, description, imageUrl }),
+      body: JSON.stringify({
+        name,
+        subtitle,
+        description,
+        imageUrl,
+        packagePrices: packagePrices.map(Number),
+      }),
     });
+    if (!res.ok) {
+      alert(
+        'Could not save the variant. Check the package prices and try again.'
+      );
+      return;
+    }
 
     setName('');
     setSubtitle('');
     setDescription('');
     setImageUrl('');
+    setPackagePrices(NEW_VARIANT_PACKAGES.map((pkg) => pkg.price));
     fetchVariants(password);
+  };
+
+  const savePickupAddress = async () => {
+    setSavingPickupAddress(true);
+    const res = await fetch('/api/admin', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-password': password,
+      },
+      body: JSON.stringify({
+        type: 'update_pickup_address',
+        pickupAddress,
+      }),
+    });
+    setSavingPickupAddress(false);
+    if (!res.ok) {
+      alert('Could not save the pickup address.');
+      return;
+    }
+    const data = await res.json();
+    setPickupAddress(data.storeSettings.pickupAddress);
   };
 
   const handleDeleteVariant = async (id: number) => {
@@ -208,6 +256,34 @@ export default function AdminDashboard() {
             onChange={(e) => setImageUrl(e.target.value)}
             className="w-full border border-[#E0CEBC] rounded-xl px-3 py-2.5 text-sm"
           />
+          <fieldset className="space-y-2 rounded-xl border border-[#E8D8C8] p-3">
+            <legend className="px-1 text-xs font-semibold text-[#7A5C48]">
+              Initial package prices (IDR)
+            </legend>
+            {NEW_VARIANT_PACKAGES.map((pkg, index) => (
+              <label
+                key={pkg.label}
+                className="flex items-center justify-between gap-3 text-xs text-[#5C4332]"
+              >
+                <span>{pkg.label}</span>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  required
+                  value={packagePrices[index]}
+                  onChange={(event) =>
+                    setPackagePrices((prices) =>
+                      prices.map((price, priceIndex) =>
+                        priceIndex === index ? event.target.value : price
+                      )
+                    )
+                  }
+                  className="w-28 rounded-lg border border-[#E0CEBC] px-2.5 py-1.5 text-right font-semibold text-[#2C1E16]"
+                />
+              </label>
+            ))}
+          </fieldset>
           <button
             type="submit"
             className="w-full bg-[#3B2314] text-white font-semibold py-3 rounded-xl text-sm"
@@ -215,6 +291,30 @@ export default function AdminDashboard() {
             Save New Flavor
           </button>
         </form>
+
+        <section className="bg-white border border-[#E8D8C8] rounded-2xl p-4 space-y-3 shadow-sm">
+          <h2 className="font-bold text-sm text-[#3B2314]">
+            Pickup location
+          </h2>
+          <label className="block space-y-1.5 text-xs font-medium text-[#7A5C48]">
+            Address shown to customers
+            <textarea
+              value={pickupAddress}
+              onChange={(event) => setPickupAddress(event.target.value)}
+              rows={2}
+              required
+              className="w-full border border-[#E0CEBC] rounded-xl px-3 py-2.5 text-sm font-normal text-[#2C1E16]"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={savePickupAddress}
+            disabled={savingPickupAddress || !pickupAddress.trim()}
+            className="w-full bg-[#3B2314] text-white font-semibold py-2.5 rounded-xl text-sm disabled:opacity-60"
+          >
+            {savingPickupAddress ? 'Saving...' : 'Save pickup address'}
+          </button>
+        </section>
 
         {/* Manage Existing Variants */}
         {variants.map((v) => (

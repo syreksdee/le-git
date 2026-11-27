@@ -7,3 +7,13 @@
    cd le-git
    npm install @prisma/client
    npm install -D prisma ts-node
+   ```
+
+## Updating the database schema
+
+After adding or changing Prisma models, apply the schema to the configured MySQL
+database before deploying:
+
+```bash
+npx prisma db push
+```
